@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using DataTable.Importer;
@@ -39,6 +40,15 @@ namespace DataTable.Tests.Importer
             var item = database.Item.FindById(quest.RewardItemId);
             Assert.That(item, Is.Not.Null);
             Assert.That(item!.Id, Is.EqualTo(new Id<ItemData>(100)));
+
+            using var preloadedDatabase = new TableDatabase();
+            await preloadedDatabase.InitializeAsync(outputPath, TableDatabaseOptions.PreloadAll);
+            var quests = preloadedDatabase.Quest.FindAllByTypeAndRepeatType(
+                QuestType.Sub,
+                QuestRepeatType.Daily);
+            Assert.That(quests, Is.TypeOf<List<QuestData>>());
+            Assert.That(quests, Has.Count.EqualTo(1));
+            Assert.That(quests[0].Id, Is.EqualTo(new Id<QuestData>(1)));
         }
 
         [Test]
