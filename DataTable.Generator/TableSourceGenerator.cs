@@ -575,12 +575,20 @@ namespace DataTable.Generator
             builder.AppendLine("        private readonly global::SQLite.SQLiteConnection? _connection;");
             foreach (var finder in model.Finders)
             {
-                var indexType = finder.FindAll
-                    ? "global::DataTable.Runtime.Internal.PreloadedFindAllIndex"
-                    : "global::DataTable.Runtime.Internal.PreloadedFindIndex";
-                builder.Append("        private readonly ").Append(indexType).Append('<')
-                    .Append(GetFinderKeyType(finder)).Append(", ").Append(model.ModelType)
-                    .Append(">? ").Append(GetPreloadedIndexFieldName(finder)).AppendLine(";");
+                builder.Append("        private readonly ");
+                if (finder.FindAll)
+                {
+                    builder.Append("global::System.Collections.Generic.Dictionary<")
+                        .Append(GetFinderKeyType(finder)).Append(", global::System.Collections.Generic.List<")
+                        .Append(model.ModelType).Append(">>");
+                }
+                else
+                {
+                    builder.Append("global::System.Collections.Generic.Dictionary<")
+                        .Append(GetFinderKeyType(finder)).Append(", ").Append(model.ModelType).Append('>');
+                }
+
+                builder.Append("? ").Append(GetPreloadedIndexFieldName(finder)).AppendLine(";");
             }
             builder.AppendLine();
             builder.Append("        internal ").Append(model.TableName)
@@ -596,13 +604,20 @@ namespace DataTable.Generator
             builder.AppendLine("        {");
             foreach (var finder in model.Finders)
             {
-                var indexType = finder.FindAll
-                    ? "global::DataTable.Runtime.Internal.PreloadedFindAllIndex"
-                    : "global::DataTable.Runtime.Internal.PreloadedFindIndex";
                 builder.Append("            ").Append(GetPreloadedIndexFieldName(finder))
-                    .Append(" = new ").Append(indexType).Append('<')
-                    .Append(GetFinderKeyType(finder)).Append(", ").Append(model.ModelType)
-                    .AppendLine(">();");
+                    .Append(" = new ");
+                if (finder.FindAll)
+                {
+                    builder.Append("global::System.Collections.Generic.Dictionary<")
+                        .Append(GetFinderKeyType(finder)).Append(", global::System.Collections.Generic.List<")
+                        .Append(model.ModelType).AppendLine(">>();");
+                }
+                else
+                {
+                    builder.Append("global::System.Collections.Generic.Dictionary<")
+                        .Append(GetFinderKeyType(finder)).Append(", ").Append(model.ModelType)
+                        .AppendLine(">();");
+                }
             }
             builder.AppendLine("            foreach (var row in rows)");
             builder.AppendLine("            {");
@@ -611,15 +626,27 @@ namespace DataTable.Generator
                 var rowMembers = finder.Members
                     .Select(static member => "row." + EscapeIdentifier(member.Name))
                     .ToArray();
-                builder.Append("                ").Append(GetPreloadedIndexFieldName(finder))
-                    .Append(".Add(").Append(GetKeyExpression(rowMembers)).AppendLine(", row);");
+                var indexField = GetPreloadedIndexFieldName(finder);
+                if (finder.FindAll)
+                {
+                    builder.AppendLine("                {");
+                    builder.Append("                    var key = ").Append(GetKeyExpression(rowMembers)).AppendLine(";");
+                    builder.Append("                    if (!").Append(indexField).AppendLine(".TryGetValue(key, out var values))");
+                    builder.AppendLine("                    {");
+                    builder.Append("                        values = new global::System.Collections.Generic.List<")
+                        .Append(model.ModelType).AppendLine(">();");
+                    builder.Append("                        ").Append(indexField).AppendLine(".Add(key, values);");
+                    builder.AppendLine("                    }");
+                    builder.AppendLine("                    values.Add(row);");
+                    builder.AppendLine("                }");
+                }
+                else
+                {
+                    builder.Append("                ").Append(indexField)
+                        .Append(".Add(").Append(GetKeyExpression(rowMembers)).AppendLine(", row);");
+                }
             }
             builder.AppendLine("            }");
-            foreach (var finder in model.Finders.Where(static value => value.FindAll))
-            {
-                builder.Append("            ").Append(GetPreloadedIndexFieldName(finder))
-                    .AppendLine(".Seal();");
-            }
             builder.AppendLine("        }");
             builder.AppendLine();
 
@@ -743,14 +770,16 @@ namespace DataTable.Generator
                 builder.Append("            if (").Append(GetPreloadedIndexFieldName(finder))
                     .AppendLine(" != null)");
                 builder.Append("                return ").Append(GetPreloadedIndexFieldName(finder))
-                    .Append(".Find(").Append(preloadKey).AppendLine(");");
+                    .Append(".TryGetValue(").Append(preloadKey)
+                    .Append(", out var preloaded) ? preloaded : global::System.Array.Empty<")
+                    .Append(model.ModelType).AppendLine(">();");
             }
             else
             {
                 builder.Append("            if (").Append(GetPreloadedIndexFieldName(finder))
                     .AppendLine(" != null)");
                 builder.Append("                return ").Append(GetPreloadedIndexFieldName(finder))
-                    .Append(".TryGet(").Append(preloadKey)
+                    .Append(".TryGetValue(").Append(preloadKey)
                     .AppendLine(", out var preloaded) ? preloaded : null;");
             }
             builder.AppendLine();
