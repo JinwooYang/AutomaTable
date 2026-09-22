@@ -45,13 +45,14 @@ namespace DataTable.Tests.Importer
         public void Import_DuplicateWorksheetNameAcrossFiles_FailsBeforeCreatingDatabase()
         {
             using var directory = TemporaryDirectory.Create();
-            File.Copy(Path.Combine(GetInputDirectory(), "ItemData.xlsx"), Path.Combine(directory.Path, "ItemData.xlsx"));
-            File.Copy(Path.Combine(GetInputDirectory(), "ItemData.xlsx"), Path.Combine(directory.Path, "Duplicate.xlsx"));
-            File.Copy(Path.Combine(GetInputDirectory(), "QuestData.xlsx"), Path.Combine(directory.Path, "QuestData.xlsx"));
-            var outputPath = Path.Combine(directory.Path, "table.db");
+            var directoryPath = directory.Path;
+            File.Copy(Path.Combine(GetInputDirectory(), "ItemData.xlsx"), Path.Combine(directoryPath, "ItemData.xlsx"));
+            File.Copy(Path.Combine(GetInputDirectory(), "ItemData.xlsx"), Path.Combine(directoryPath, "Duplicate.xlsx"));
+            File.Copy(Path.Combine(GetInputDirectory(), "QuestData.xlsx"), Path.Combine(directoryPath, "QuestData.xlsx"));
+            var outputPath = Path.Combine(directoryPath, "table.db");
 
             var exception = Assert.Throws<InvalidDataException>(() =>
-                TableDatabaseImporter.Import(directory.Path, outputPath));
+                TableDatabaseImporter.Import(directoryPath, outputPath));
 
             Assert.That(exception!.Message, Does.Contain("Worksheet 'ItemData' is duplicated"));
             Assert.That(File.Exists(outputPath), Is.False);
