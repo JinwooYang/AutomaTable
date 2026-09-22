@@ -17,6 +17,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\DataTable\DataTable.csproj" />
+      <ProjectReference Include="..\DataTable.Importer\DataTable.Importer.csproj" />
       <ProjectReference Include="..\DataTable.Tests.Generator\DataTable.Tests.Generator.csproj"
                         OutputItemType="Analyzer"
                         ReferenceOutputAssembly="false" />
@@ -25,6 +26,9 @@
     <ItemGroup>
       <None Update="Resources\**\*" CopyToOutputDirectory="PreserveNewest" />
       <None Update="TestData\table.db" CopyToOutputDirectory="PreserveNewest" />
+      <None Include="..\DataTable.Importer\Input\*.xlsx"
+            Link="ImporterInput\%(Filename)%(Extension)"
+            CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
 </Project>
