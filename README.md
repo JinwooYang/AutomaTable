@@ -1,4 +1,6 @@
-# DataTable
+# AutomaTable
+
+> Define tables once. Generate everything else.
 
 게임 데이터 테이블을 한 번 정의하면 **클라이언트/서버에서 공통으로 사용할 테이블 코드**, **Excel 데이터를 런타임 DB로 변환하는 Importer**, **데이터 무결성을 검증하는 테스트 코드**까지 자동으로 생성하는 C# 데이터 테이블 자동화 도구입니다.
 
@@ -13,7 +15,7 @@
 * Unique Key / Reference 등의 데이터 무결성 검증
 * 런타임에서 사용할 DB 및 인덱스 구성
 
-DataTable은 테이블 정의를 기준으로 이러한 반복 작업을 자동으로 생성합니다.
+AutomaTable은 테이블 정의를 기준으로 이러한 반복 작업을 자동으로 생성합니다.
 
 ```text
                        ┌─ Runtime Table Code
@@ -35,11 +37,11 @@ Table Definition ──────┼─ Excel Importer
 테이블은 일반 C# 클래스로 정의합니다.
 
 ```csharp
-using DataTable.Annotations;
-using DataTable.Models.Items;
-using DataTable.Primitives;
+using AutomaTable.Annotations;
+using AutomaTable.Models.Items;
+using AutomaTable.Primitives;
 
-namespace DataTable.Models.Quests;
+namespace AutomaTable.Models.Quests;
 
 [TableRow]
 [FindAllBy(nameof(Type), nameof(RepeatType))]
@@ -75,7 +77,7 @@ public sealed class ItemData
 
 ## Runtime Table
 
-`DataTable.Generator`는 `[TableRow]` 모델을 분석해 테이블별 조회 코드를 생성합니다.
+`AutomaTable.Generator`는 `[TableRow]` 모델을 분석해 테이블별 조회 코드를 생성합니다.
 
 예를 들어 위의 `QuestData` 정의로부터 다음과 같은 API를 사용할 수 있습니다.
 
@@ -117,19 +119,19 @@ await db.InitializeAsync(
 
 서버처럼 테이블 전체를 메모리에 유지하면서 빠르게 조회하는 환경을 위한 방식입니다.
 
-DataTable은 동일한 테이블 정의와 조회 API를 서로 다른 런타임 환경에서 공유하는 것을 목표로 합니다.
+AutomaTable은 동일한 테이블 정의와 조회 API를 서로 다른 런타임 환경에서 공유하는 것을 목표로 합니다.
 
 ---
 
 ## Excel Importer
 
-`DataTable.Importer`는 Excel 파일을 읽어 런타임에서 사용할 SQLite DB를 생성합니다.
+`AutomaTable.Importer`는 Excel 파일을 읽어 런타임에서 사용할 SQLite DB를 생성합니다.
 
 ```text
 XLSX
  │
  ▼
-DataTable.Importer
+AutomaTable.Importer
  │
  ▼
 table.db
@@ -163,16 +165,16 @@ GameData.xlsx
 Importer 실행 예:
 
 ```powershell
-dotnet run --project .\DataTable.Importer\DataTable.Importer.csproj -- `
-  .\DataTable.Importer\Input `
-  .\DataTable.Tests\TestData\table.db
+dotnet run --project .\AutomaTable.Importer\AutomaTable.Importer.csproj -- `
+  .\AutomaTable.Importer\Input `
+  .\AutomaTable.Tests\TestData\table.db
 ```
 
 ---
 
 ## 데이터 검증
 
-`DataTable.Tests.Generator`는 테이블 정의를 분석하여 NUnit 기반 데이터 검증 테스트를 자동 생성합니다.
+`AutomaTable.Tests.Generator`는 테이블 정의를 분석하여 NUnit 기반 데이터 검증 테스트를 자동 생성합니다.
 
 현재 다음과 같은 데이터 오류를 검증할 수 있습니다.
 
@@ -196,23 +198,23 @@ public Id<ItemData> RewardItemId { get; internal set; }
 ## Project Structure
 
 ```text
-DataTable
-├─ DataTable
+AutomaTable
+├─ AutomaTable
 │  └─ Runtime / Table Definition
 │
-├─ DataTable.Generator
+├─ AutomaTable.Generator
 │  └─ Runtime table code generator
 │
-├─ DataTable.Importer
+├─ AutomaTable.Importer
 │  └─ XLSX → SQLite DB
 │
-├─ DataTable.Importer.Generator
+├─ AutomaTable.Importer.Generator
 │  └─ Importer code generator
 │
-├─ DataTable.Tests
+├─ AutomaTable.Tests
 │  └─ Generated validation tests
 │
-└─ DataTable.Tests.Generator
+└─ AutomaTable.Tests.Generator
    └─ Validation test generator
 ```
 
@@ -220,9 +222,9 @@ DataTable
 
 ## 목표
 
-DataTable의 기본 아이디어는 간단합니다.
+AutomaTable의 기본 아이디어는 간단합니다.
 
-> **Define the table once, generate everything else.**
+> **Define tables once. Generate everything else.**
 
 새로운 데이터 테이블을 추가할 때 개발자가 반복적으로 작성해야 하는 코드를 최소화하고,
 
