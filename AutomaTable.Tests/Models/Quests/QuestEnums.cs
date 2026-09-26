@@ -1,4 +1,4 @@
-namespace AutomaTable.Models.Quests
+namespace AutomaTable.Tests.Models.Quests
 {
     public enum QuestType
     {

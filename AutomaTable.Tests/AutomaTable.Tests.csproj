@@ -16,17 +16,19 @@
     </ItemGroup>
 
     <ItemGroup>
+      <CompilerVisibleProperty Include="AutomaTableEmitSchema" />
       <ProjectReference Include="..\AutomaTable\AutomaTable.csproj" />
-      <ProjectReference Include="..\AutomaTable.Importer\AutomaTable.Importer.csproj" />
-      <ProjectReference Include="..\AutomaTable.Tests.Generator\AutomaTable.Tests.Generator.csproj"
+      <ProjectReference Include="..\AutomaTable.Generator\AutomaTable.Generator.csproj"
                         OutputItemType="Analyzer"
-                        ReferenceOutputAssembly="false" />
+                        ReferenceOutputAssembly="false"
+                        PrivateAssets="all" />
+      <ProjectReference Include="..\AutomaTable.Tool\AutomaTable.Tool.csproj" />
     </ItemGroup>
 
     <ItemGroup>
       <None Update="Resources\**\*" CopyToOutputDirectory="PreserveNewest" />
       <None Update="TestData\table.db" CopyToOutputDirectory="PreserveNewest" />
-      <None Include="..\AutomaTable.Importer\Input\*.xlsx"
+      <None Include="GameData\*.xlsx"
             Link="ImporterInput\%(Filename)%(Extension)"
             CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>

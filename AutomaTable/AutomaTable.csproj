@@ -4,6 +4,16 @@
         <Nullable>enable</Nullable>
         <LangVersion>10</LangVersion>
         <TargetFrameworks>netstandard2.1;net10.0</TargetFrameworks>
+        <PackageId>AutomaTable</PackageId>
+        <Version>0.1.0-alpha.1</Version>
+        <Authors>JinwooYang</Authors>
+        <Description>Runtime and source generator for sharing type-safe Excel-backed tables across Unity and ASP.NET Core.</Description>
+        <PackageProjectUrl>https://github.com/JinwooYang/AutomaTable</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/JinwooYang/AutomaTable.git</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageTags>table;excel;sqlite;source-generator;unity;aspnetcore</PackageTags>
+        <IsPackable>true</IsPackable>
     </PropertyGroup>
 
     <ItemGroup>
@@ -11,7 +21,26 @@
         <PackageReference Include="SQLitePCLRaw.core" Version="3.0.3" />
         <ProjectReference Include="..\AutomaTable.Generator\AutomaTable.Generator.csproj"
                           OutputItemType="Analyzer"
-                          ReferenceOutputAssembly="false" />
+                          ReferenceOutputAssembly="false"
+                          PrivateAssets="all" />
+        <CompilerVisibleProperty Include="AutomaTableEmitSchema" />
+        <None Include="buildTransitive\AutomaTable.props"
+              Pack="true"
+              PackagePath="buildTransitive\AutomaTable.props" />
+        <None Include="..\AutomaTable.Generator\bin\$(Configuration)\netstandard2.0\AutomaTable.Generator.dll"
+              Pack="true"
+              PackagePath="analyzers\dotnet\cs"
+              Visible="false" />
+        <None Include="..\README.md"
+              Pack="true"
+              PackagePath="\" />
     </ItemGroup>
+
+    <Target Name="BuildAutomaTableGeneratorForPack" BeforeTargets="GenerateNuspec">
+        <MSBuild Projects="..\AutomaTable.Generator\AutomaTable.Generator.csproj"
+                 Targets="Build"
+                 Properties="Configuration=$(Configuration)"
+                 Condition="'$(NoBuild)' != 'true'" />
+    </Target>
 
 </Project>

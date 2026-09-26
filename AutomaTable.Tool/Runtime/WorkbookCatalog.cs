@@ -3,7 +3,7 @@ using System.IO;
 using System.Text;
 using ExcelDataReader;
 
-namespace AutomaTable.Importer.Runtime
+namespace AutomaTable.Tool.Runtime
 {
     internal sealed class WorkbookCatalog
     {

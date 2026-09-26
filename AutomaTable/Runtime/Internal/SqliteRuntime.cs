@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using SQLitePCL;
 
 namespace AutomaTable.Runtime.Internal
 {
-    internal static class SqliteRuntime
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public static class SqliteRuntime
     {
         public static sqlite3_stmt Prepare(sqlite3 database, string sql)
         {

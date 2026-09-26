@@ -85,6 +85,10 @@ namespace AutomaTable.Generator
                 .Select(static (analysis, _) => analysis.Model!)
                 .WithComparer(TableModelComparer.Instance);
 
+            var emitSchema = context.AnalyzerConfigOptionsProvider.Select(static (options, _) =>
+                options.GlobalOptions.TryGetValue("build_property.AutomaTableEmitSchema", out var value) &&
+                string.Equals(value, "true", StringComparison.OrdinalIgnoreCase));
+
             context.RegisterSourceOutput(models, static (sourceContext, model) =>
             {
                 sourceContext.AddSource(
@@ -99,6 +103,18 @@ namespace AutomaTable.Generator
 
             context.RegisterSourceOutput(identities, static (sourceContext, values) =>
                 EmitDatabase(sourceContext, values));
+
+            context.RegisterSourceOutput(models.Collect().Combine(emitSchema), static (sourceContext, input) =>
+            {
+                if (!input.Right || input.Left.IsDefaultOrEmpty)
+                {
+                    return;
+                }
+
+                sourceContext.AddSource(
+                    "AutomaTable.SchemaMetadata.g.cs",
+                    SourceText.From(RenderSchemaMetadataFile(input.Left), Encoding.UTF8));
+            });
         }
 
         private static void EmitDatabase(SourceProductionContext context, ImmutableArray<TableIdentity> identities)
@@ -209,7 +225,8 @@ namespace AutomaTable.Generator
                 members.Add(new MemberModel(
                     symbolMember.Name,
                     memberType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
-                    conversion));
+                    conversion,
+                    CreateSchemaMember(memberType)));
             }
 
             var identityMember = members.First(member => member.Name == "Id");
@@ -426,6 +443,70 @@ namespace AutomaTable.Generator
             return null;
         }
 
+        private static SchemaMemberModel CreateSchemaMember(ITypeSymbol type)
+        {
+            var nullable = type.NullableAnnotation == NullableAnnotation.Annotated;
+            var actualType = type;
+            if (type is INamedTypeSymbol nullableType &&
+                nullableType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T &&
+                nullableType.TypeArguments.Length == 1)
+            {
+                nullable = true;
+                actualType = nullableType.TypeArguments[0];
+            }
+
+            if (actualType is INamedTypeSymbol idType && idType.IsGenericType &&
+                idType.Name == "Id" && idType.Arity == 1 &&
+                idType.ContainingNamespace.ToDisplayString() == "AutomaTable.Primitives")
+            {
+                return new SchemaMemberModel("Id", nullable, idType.TypeArguments[0].Name, null, Array.Empty<SchemaEnumValue>());
+            }
+
+            if (actualType.TypeKind == TypeKind.Enum)
+            {
+                var values = ((INamedTypeSymbol)actualType).GetMembers().OfType<IFieldSymbol>()
+                    .Where(static field => field.HasConstantValue)
+                    .Select(static field => new SchemaEnumValue(field.Name, Convert.ToInt64(field.ConstantValue)))
+                    .ToArray();
+                return new SchemaMemberModel("Enum", nullable, null, actualType.Name, values);
+            }
+
+            if (actualType.Name == "AssetAddress" &&
+                actualType.ContainingNamespace.ToDisplayString() == "AutomaTable.Primitives")
+            {
+                return new SchemaMemberModel("AssetAddress", nullable, null, null, Array.Empty<SchemaEnumValue>());
+            }
+
+            if (IsReadOnlyMemoryOfByte(actualType))
+                return new SchemaMemberModel("Blob", nullable, null, null, Array.Empty<SchemaEnumValue>());
+
+            var kind = actualType.SpecialType switch
+            {
+                SpecialType.System_Boolean => "Boolean",
+                SpecialType.System_Byte => "Integer",
+                SpecialType.System_SByte => "Integer",
+                SpecialType.System_Int16 => "Integer",
+                SpecialType.System_UInt16 => "Integer",
+                SpecialType.System_Int32 => "Integer",
+                SpecialType.System_UInt32 => "Integer",
+                SpecialType.System_Int64 => "Integer",
+                SpecialType.System_UInt64 => "Integer",
+                SpecialType.System_Single => "Real",
+                SpecialType.System_Double => "Real",
+                SpecialType.System_Decimal => "Real",
+                SpecialType.System_String => "String",
+                _ => actualType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) switch
+                {
+                    "global::System.DateTime" => "DateTime",
+                    "global::System.DateTimeOffset" => "DateTimeOffset",
+                    "global::System.TimeSpan" => "TimeSpan",
+                    "global::System.Guid" => "Guid",
+                    _ => "Unknown"
+                }
+            };
+            return new SchemaMemberModel(kind, nullable, null, null, Array.Empty<SchemaEnumValue>());
+        }
+
         private static bool IsReadOnlyMemoryOfByte(ITypeSymbol type)
         {
             return type is INamedTypeSymbol named &&
@@ -433,6 +514,92 @@ namespace AutomaTable.Generator
                    named.Arity == 1 &&
                    named.ContainingNamespace.ToDisplayString() == "System" &&
                    named.TypeArguments[0].SpecialType == SpecialType.System_Byte;
+        }
+
+        private static string RenderSchemaMetadataFile(ImmutableArray<TableModel> models)
+        {
+            var json = RenderSchemaJson(models);
+            var builder = new StringBuilder();
+            builder.AppendLine("// <auto-generated />");
+            builder.Append("[assembly: global::System.Reflection.AssemblyMetadataAttribute(\"AutomaTable.Schema.v1\", \"")
+                .Append(EscapeString(json))
+                .AppendLine("\")]");
+            return builder.ToString();
+        }
+
+        private static string RenderSchemaJson(ImmutableArray<TableModel> models)
+        {
+            var builder = new StringBuilder();
+            builder.Append("{\"version\":1,\"tables\":[");
+            var orderedTables = models.OrderBy(static model => model.RowName, StringComparer.Ordinal).ToArray();
+            for (var tableIndex = 0; tableIndex < orderedTables.Length; tableIndex++)
+            {
+                if (tableIndex > 0) builder.Append(',');
+                var table = orderedTables[tableIndex];
+                builder.Append("{\"name\":\"").Append(EscapeJson(table.RowName)).Append("\",\"columns\":[");
+                for (var columnIndex = 0; columnIndex < table.Members.Count; columnIndex++)
+                {
+                    if (columnIndex > 0) builder.Append(',');
+                    var member = table.Members[columnIndex];
+                    builder.Append("{\"name\":\"").Append(EscapeJson(member.Name))
+                        .Append("\",\"storage\":\"").Append(GetSchemaStorage(member.Conversion.StorageKind))
+                        .Append("\",\"kind\":\"").Append(member.Schema.Kind)
+                        .Append("\",\"nullable\":").Append(member.Schema.Nullable ? "true" : "false");
+                    if (member.Schema.ReferenceTable != null)
+                        builder.Append(",\"referenceTable\":\"").Append(EscapeJson(member.Schema.ReferenceTable)).Append('"');
+                    if (member.Schema.EnumName != null)
+                    {
+                        builder.Append(",\"enumName\":\"").Append(EscapeJson(member.Schema.EnumName)).Append("\",\"enumValues\":{");
+                        for (var enumIndex = 0; enumIndex < member.Schema.EnumValues.Count; enumIndex++)
+                        {
+                            if (enumIndex > 0) builder.Append(',');
+                            var enumValue = member.Schema.EnumValues[enumIndex];
+                            builder.Append('"').Append(EscapeJson(enumValue.Name)).Append("\":").Append(enumValue.Value);
+                        }
+                        builder.Append('}');
+                    }
+                    builder.Append('}');
+                }
+
+                builder.Append("],\"indexes\":[");
+                var indexes = table.Finders
+                    .Where(static finder => finder.RequiresSqliteIndex)
+                    .GroupBy(static finder => string.Join("\u001f", finder.Members.Select(static member => member.Name)), StringComparer.Ordinal)
+                    .Select(static group => group.First())
+                    .ToArray();
+                for (var index = 0; index < indexes.Length; index++)
+                {
+                    if (index > 0) builder.Append(',');
+                    var finder = indexes[index];
+                    builder.Append("{\"unique\":").Append(finder.FindAll ? "false" : "true").Append(",\"columns\":[");
+                    for (var memberIndex = 0; memberIndex < finder.Members.Count; memberIndex++)
+                    {
+                        if (memberIndex > 0) builder.Append(',');
+                        builder.Append('"').Append(EscapeJson(finder.Members[memberIndex].Name)).Append('"');
+                    }
+                    builder.Append("]}");
+                }
+                builder.Append("]}");
+            }
+            builder.Append("]}");
+            return builder.ToString();
+        }
+
+        private static string GetSchemaStorage(SqliteStorageKind storageKind)
+        {
+            return storageKind switch
+            {
+                SqliteStorageKind.Integer or SqliteStorageKind.NullableInteger => "Integer",
+                SqliteStorageKind.Real => "Real",
+                SqliteStorageKind.RequiredText or SqliteStorageKind.NullableText => "Text",
+                SqliteStorageKind.RequiredBlob or SqliteStorageKind.NullableBlob => "Blob",
+                _ => throw new ArgumentOutOfRangeException(nameof(storageKind))
+            };
+        }
+
+        private static string EscapeJson(string value)
+        {
+            return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
         }
 
         private static string RenderDatabaseFile(IReadOnlyList<TableIdentity> identities)
@@ -1086,23 +1253,26 @@ namespace AutomaTable.Generator
 
         private sealed class MemberModel : IEquatable<MemberModel>
         {
-            public MemberModel(string name, string modelType, TypeConversion conversion)
+            public MemberModel(string name, string modelType, TypeConversion conversion, SchemaMemberModel schema)
             {
                 Name = name;
                 ModelType = modelType;
                 Conversion = conversion;
+                Schema = schema;
             }
 
             public string Name { get; }
             public string ModelType { get; }
             public TypeConversion Conversion { get; }
+            public SchemaMemberModel Schema { get; }
 
             public bool Equals(MemberModel? other)
             {
                 return other != null &&
                        Name == other.Name &&
                        ModelType == other.ModelType &&
-                       Conversion.Equals(other.Conversion);
+                       Conversion.Equals(other.Conversion) &&
+                       Schema.Equals(other.Schema);
             }
 
             public override bool Equals(object? obj) => Equals(obj as MemberModel);
@@ -1115,7 +1285,78 @@ namespace AutomaTable.Generator
                     hash = hash * 31 + Name.GetHashCode();
                     hash = hash * 31 + ModelType.GetHashCode();
                     hash = hash * 31 + Conversion.GetHashCode();
+                    hash = hash * 31 + Schema.GetHashCode();
                     return hash;
+                }
+            }
+        }
+
+        private sealed class SchemaMemberModel : IEquatable<SchemaMemberModel>
+        {
+            public SchemaMemberModel(
+                string kind,
+                bool nullable,
+                string? referenceTable,
+                string? enumName,
+                IReadOnlyList<SchemaEnumValue> enumValues)
+            {
+                Kind = kind;
+                Nullable = nullable;
+                ReferenceTable = referenceTable;
+                EnumName = enumName;
+                EnumValues = enumValues;
+            }
+
+            public string Kind { get; }
+            public bool Nullable { get; }
+            public string? ReferenceTable { get; }
+            public string? EnumName { get; }
+            public IReadOnlyList<SchemaEnumValue> EnumValues { get; }
+
+            public bool Equals(SchemaMemberModel? other)
+            {
+                return other != null &&
+                       Kind == other.Kind &&
+                       Nullable == other.Nullable &&
+                       ReferenceTable == other.ReferenceTable &&
+                       EnumName == other.EnumName &&
+                       EnumValues.SequenceEqual(other.EnumValues);
+            }
+
+            public override bool Equals(object? obj) => Equals(obj as SchemaMemberModel);
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    var hash = Kind.GetHashCode();
+                    hash = hash * 31 + (Nullable ? 1 : 0);
+                    hash = hash * 31 + (ReferenceTable?.GetHashCode() ?? 0);
+                    hash = hash * 31 + (EnumName?.GetHashCode() ?? 0);
+                    foreach (var value in EnumValues) hash = hash * 31 + value.GetHashCode();
+                    return hash;
+                }
+            }
+        }
+
+        private sealed class SchemaEnumValue : IEquatable<SchemaEnumValue>
+        {
+            public SchemaEnumValue(string name, long value)
+            {
+                Name = name;
+                Value = value;
+            }
+
+            public string Name { get; }
+            public long Value { get; }
+
+            public bool Equals(SchemaEnumValue? other) => other != null && Name == other.Name && Value == other.Value;
+            public override bool Equals(object? obj) => Equals(obj as SchemaEnumValue);
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    return Name.GetHashCode() * 397 ^ Value.GetHashCode();
                 }
             }
         }

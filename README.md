@@ -1,303 +1,368 @@
 # AutomaTable
 
-> Define tables once. Generate everything else.
+**English** | [한국어](README.ko.md)
 
-게임 데이터 테이블을 한 번 정의하면 **클라이언트/서버에서 공통으로 사용할 테이블 코드**, **Excel 데이터를 런타임 DB로 변환하는 Importer**, **데이터 무결성을 검증하는 테스트 코드**까지 자동으로 생성하는 C# 데이터 테이블 자동화 도구입니다.
+> [!WARNING]
+> AutomaTable is under active development. ASP.NET Core integration has been validated, while validation in Unity is still in progress. APIs and package structure may change before the first stable release.
 
-반복적으로 작성해야 하는 테이블 조회 코드, Excel 파싱 코드, 데이터 검증 코드를 Source Generator를 통해 자동화하고, 하나의 테이블 정의를 데이터 파이프라인 전체의 기준으로 사용하는 것을 목표로 합니다.
+> **Define tables once. Generate everything else.**
 
-## Overview
+**Define each table once in C#. AutomaTable generates the runtime query API, builds Excel data into SQLite, creates indexes, and validates the result.**
 
-게임에서 데이터 테이블 하나를 추가하려면 실제로는 데이터 클래스만 작성하는 것으로 끝나지 않는 경우가 많습니다.
+AutomaTable is designed for projects where a Unity client and an ASP.NET Core server share the same C# table definitions, generated query API, and data contract.
 
-* 클라이언트와 서버에서 사용할 조회 코드
-* Excel 데이터를 런타임 데이터로 변환하는 Importer
-* Unique Key / Reference 등의 데이터 무결성 검증
-* 런타임에서 사용할 DB 및 인덱스 구성
+## Define a table. Get the whole pipeline.
 
-AutomaTable은 테이블 정의를 기준으로 이러한 반복 작업을 자동으로 생성합니다.
-
-```text
-                       ┌─ Runtime Table Code
-                       │   └─ Client / Server
-                       │
-Table Definition ──────┼─ Excel Importer
-                       │   └─ XLSX → SQLite DB
-                       │
-                       └─ Validation Tests
-                           └─ NUnit
-```
-
-테이블 구조나 조회 조건이 변경되면 관련 코드 역시 Source Generator를 통해 함께 갱신됩니다.
-
----
-
-## 데이터 정의
-
-테이블은 일반 C# 클래스로 정의합니다.
+Start with ordinary C# models. Attributes declare the queries you want, while types declare relationships and asset references:
 
 ```csharp
 using AutomaTable.Annotations;
-using AutomaTable.Models.Items;
 using AutomaTable.Primitives;
 
-namespace AutomaTable.Models.Quests;
+public enum ItemCategory { Weapon, Armor, Consumable }
 
 [TableRow]
-[FindAllBy(nameof(Type), nameof(RepeatType))]
+[FindBy(nameof(Name))]
+[FindAllBy(nameof(Category))]
+public sealed class ItemData
+{
+    public Id<ItemData> Id { get; internal set; }
+    public string Name { get; internal set; } = null!;
+    public ItemCategory Category { get; internal set; }
+    public AssetAddress IconAddress { get; internal set; }
+}
+
+[TableRow]
 public sealed class QuestData
 {
     public Id<QuestData> Id { get; internal set; }
-
-    public QuestType Type { get; internal set; }
-    public QuestRepeatType RepeatType { get; internal set; }
-
-    public AssetAddress IconAddress { get; internal set; }
-
+    public string Title { get; internal set; } = null!;
     public Id<ItemData> RewardItemId { get; internal set; }
 }
 ```
 
-`[TableRow]`가 선언된 타입을 기준으로 런타임 테이블, Importer, 데이터 검증 테스트가 생성됩니다.
+These types also describe validation rules. The source generator emits the validation metadata, and the CLI runs the corresponding checks automatically:
 
-조회 조건 역시 테이블 정의에 함께 선언합니다.
+- `Id<ItemData>` requires the referenced `ItemData` row to exist.
+- Verify that a file exists at the path referenced by each `AssetAddress`.
+- Verify that every table's `Id` and each `[FindBy]` key are unique.
+
+Put the matching worksheets in `GameData/*.xlsx`, then build and validate them with one command:
+
+```powershell
+dotnet automatable build --validate
+```
+
+AutomaTable builds `Generated/table.db` and the source generator gives you a fully typed query API:
 
 ```csharp
+using AutomaTable.Primitives;
+using AutomaTable.Runtime;
+
+using var db = new TableDatabase();
+await db.InitializeAsync("Generated/table.db");
+
+var item = db.Item.FindById(new Id<ItemData>(100));
+var sword = db.Item.FindByName("Wood Sword");
+var weapons = db.Item.FindAllByCategory(ItemCategory.Weapon);
+
+var quest = db.Quest.FindById(new Id<QuestData>(1));
+var reward = db.Item.FindById(quest!.RewardItemId);
+```
+
+No query strings, mapping code, importer project, hand-written validation, or manually maintained indexes. The model drives the entire pipeline:
+
+```text
+C# table models ── Source Generator ──> typed runtime API ──┬─ Unity client
+        │                                                  └─ ASP.NET Core server
+        └── generated schema + Excel ──> Generated/table.db + validation
+```
+
+AutomaTable lets you keep static game or application data outside your codebase without giving up type-safe access at runtime. Your C# models remain the source of truth: the source generator creates the query API, while the `automatable` CLI converts Excel workbooks into a validated SQLite database without executing your application code.
+
+## Features
+
+- Share table models and generated APIs between Unity clients and ASP.NET Core servers.
+- Generate tables and query APIs from C# classes marked with `[TableRow]`.
+- Build multiple `.xlsx` workbooks into a single SQLite database.
+- Express type-safe relationships between tables with `Id<T>`.
+- Define single-column and composite indexes with `[FindBy]` and `[FindAllBy]`.
+- Validate duplicate keys, broken references, missing assets, and database schema mismatches.
+- Use the same public API for direct SQLite queries and fully preloaded data.
+- Keep schema-build artifacts isolated and reuse them through incremental builds.
+
+## Requirements
+
+- Runtime package: a project compatible with `netstandard2.1` or `net10.0`
+- CLI tool: .NET 10 SDK
+- Data source: Excel workbooks in `.xlsx` format
+
+## Installation
+
+Install the runtime package and the repository-local tool:
+
+```powershell
+dotnet add package AutomaTable --prerelease
+
+# Run this once if the repository does not have a tool manifest yet.
+dotnet new tool-manifest
+dotnet tool install --local AutomaTable.Tool --prerelease
+```
+
+The `AutomaTable` package includes both the runtime and the source generator. You do not need to reference `AutomaTable.Generator` separately.
+
+## Quick start
+
+### 1. Define a table model
+
+Add `[TableRow]` to a class and declare each data member as a `public get; internal set;` property. Every table must have an `Id` property typed as `Id<T>`, where `T` is the row type itself.
+
+```csharp
+using AutomaTable.Annotations;
+using AutomaTable.Primitives;
+
+public enum ItemCategory
+{
+    Weapon,
+    Armor,
+    Consumable
+}
+
+[TableRow]
 [FindBy(nameof(Name))]
-[FindAllBy(nameof(Type))]
+[FindAllBy(nameof(Category))]
 public sealed class ItemData
 {
-    // ...
+    public Id<ItemData> Id { get; internal set; }
+    public string Name { get; internal set; } = null!;
+    public ItemCategory Category { get; internal set; }
+    public int Price { get; internal set; }
+    public AssetAddress Icon { get; internal set; }
 }
 ```
 
-`FindBy`는 하나의 행을 찾는 조회를, `FindAllBy`는 동일한 키를 가진 여러 행을 조회하는 API를 생성합니다.
+The Excel worksheet and SQLite table use the full class name, `ItemData`. For a class name ending in `Data`, the generated runtime API drops that suffix for readability, producing `db.Item` and `ItemTable`. Names without the `Data` suffix remain unchanged.
 
----
+### 2. Create the Excel data
 
-## Runtime Table
-
-`AutomaTable.Generator`는 `[TableRow]` 모델을 분석해 테이블별 조회 코드를 생성합니다.
-
-예를 들어 위의 `QuestData` 정의로부터 다음과 같은 API를 사용할 수 있습니다.
-
-```csharp
-using var db = new TableDatabase();
-
-await db.InitializeAsync("table.db");
-
-var quest = db.Quest.FindById(new Id<QuestData>(1));
-
-var dailySubQuests = db.Quest.FindAllByTypeAndRepeatType(
-    QuestType.Sub,
-    QuestRepeatType.Daily);
-```
-
-테이블 코드는 런타임 환경에 따라 두 가지 방식으로 사용할 수 있습니다.
-
-### Direct
-
-기본 모드에서는 조회 시 SQLite DB를 직접 조회합니다.
-
-```csharp
-await db.InitializeAsync(
-    "table.db",
-    TableDatabaseOptions.Direct);
-```
-
-클라이언트처럼 전체 테이블을 메모리에 올리지 않고 필요한 데이터를 조회하는 환경을 위한 방식입니다.
-
-### PreloadAll
-
-```csharp
-await db.InitializeAsync(
-    "table.db",
-    TableDatabaseOptions.PreloadAll);
-```
-
-모든 데이터를 초기화 시점에 읽어 메모리 인덱스를 생성합니다.
-
-서버처럼 테이블 전체를 메모리에 유지하면서 빠르게 조회하는 환경을 위한 방식입니다.
-
-AutomaTable은 동일한 테이블 정의와 조회 API를 서로 다른 런타임 환경에서 공유하는 것을 목표로 합니다.
-
----
-
-## Excel Importer
-
-`AutomaTable.Importer`는 Excel 파일을 읽어 런타임에서 사용할 SQLite DB를 생성합니다.
+Place `.xlsx` files in the project's `GameData` directory. Workbook filenames are unrestricted, but each worksheet name must match its table class name.
 
 ```text
-XLSX
- │
- ▼
-AutomaTable.Importer
- │
- ▼
-table.db
+MyGame/
+├─ MyGame.csproj
+├─ GameData/
+│  └─ Items.xlsx       # Contains the "ItemData" worksheet
+└─ Resources/
+   └─ Items/Icons/Sword.png
 ```
 
-Importer에서 필요한 테이블 생성 코드, Excel 셀 변환 코드, SQLite 바인딩 코드와 인덱스 생성 코드 역시 테이블 정의를 기준으로 자동 생성됩니다.
+The first row of the `ItemData` worksheet contains headers that exactly match the C# property names:
 
-따라서 새로운 테이블이 추가되더라도 별도의 Excel 파싱 코드를 직접 구현할 필요가 없습니다.
+| Id | Name | Category | Price | Icon |
+|---:|---|---|---:|---|
+| 100 | Wood Sword | Weapon | 120 | Items/Icons/Sword.png |
 
-기본적으로 Worksheet 이름과 `[TableRow]` 클래스 이름을 매칭합니다.
+That is the complete shape required by the tool: a worksheet named after the table class, with C# property names in its first row. Schema mistakes are reported during the build.
 
-예를 들어:
+### 3. Build and validate the database
 
-```text
-ItemData.xlsx
-└─ ItemData
-
-QuestData.xlsx
-└─ QuestData
-```
-
-또는 하나의 Workbook 안에 여러 테이블을 구성할 수도 있습니다.
-
-```text
-GameData.xlsx
-├─ ItemData
-├─ QuestData
-└─ SkillData
-```
-
-Importer 실행 예:
+Run the tool from the project or solution directory:
 
 ```powershell
-dotnet run --project .\AutomaTable.Importer\AutomaTable.Importer.csproj -- `
-  .\AutomaTable.Importer\Input `
-  .\AutomaTable.Tests\TestData\table.db
+dotnet automatable build --validate
 ```
 
----
+Default paths:
 
-## 데이터 검증
+| Purpose | Default path |
+|---|---|
+| Excel input | `<project>/GameData` |
+| SQLite output | `<project>/Generated/table.db` |
+| Asset validation root | `<project>/Resources` |
+| Incremental schema build | `<project>/obj/AutomaTable/SchemaBuild` |
 
-`AutomaTable.Tests.Generator`는 테이블 정의를 분석하여 NUnit 기반 데이터 검증 테스트를 자동 생성합니다.
+The CLI discovers the solution and AutomaTable project from the current directory. If it finds more than one candidate, select one with `--project`:
 
-현재 다음과 같은 데이터 오류를 검증할 수 있습니다.
+```powershell
+dotnet automatable build `
+  --project .\Game.Core\Game.Core.csproj `
+  --input .\Tables `
+  --output .\Assets\GameData\table.db `
+  --resources .\Assets\Resources `
+  --validate
+```
 
-* `Id` 중복
-* `FindBy` 키 중복
-* 다른 테이블을 참조하는 `Id<T>`의 유효성
-* `AssetAddress`가 가리키는 Resource의 존재 여부
+### 4. Query the data at runtime
 
-예를 들어:
+The source generator creates `TableDatabase`, table accessors, and finder methods from your models:
 
 ```csharp
-public Id<ItemData> RewardItemId { get; internal set; }
+using AutomaTable.Primitives;
+using AutomaTable.Runtime;
+
+using var db = new TableDatabase();
+await db.InitializeAsync("Generated/table.db");
+
+var sword = db.Item.FindById(new Id<ItemData>(100));
+var namedItem = db.Item.FindByName("Wood Sword");
+var weapons = db.Item.FindAllByCategory(ItemCategory.Weapon);
 ```
 
-와 같이 다른 테이블을 참조하면, 해당 `ItemData`가 실제 데이터에 존재하는지 검증하는 테스트가 생성됩니다.
+Every table receives a `FindById` method. Additional method names and parameters are derived from the finder attributes declared on the model.
 
-이를 통해 잘못된 데이터가 실제 클라이언트나 서버에 배포되기 전에 테스트 단계에서 발견하는 것을 목표로 합니다.
+| Declaration | Generated method | Return value |
+|---|---|---|
+| `[FindBy(nameof(Name))]` | `FindByName(name)` | One row or `null` |
+| `[FindAllBy(nameof(Category))]` | `FindAllByCategory(category)` | Read-only list |
+| `[FindBy(nameof(Type), nameof(Level))]` | `FindByTypeAndLevel(type, level)` | One row or `null` |
 
----
+`FindBy` creates a UNIQUE index, so duplicate data fails the build. `FindAllBy` allows multiple rows to share the same key.
 
-## Project Structure
+## References between tables
+
+Use `Id<T>` instead of a raw integer to prevent IDs from unrelated tables from being mixed at compile time:
+
+```csharp
+[TableRow]
+public sealed class QuestData
+{
+    public Id<QuestData> Id { get; internal set; }
+    public string Title { get; internal set; } = null!;
+    public Id<ItemData> RewardItemId { get; internal set; }
+}
+```
+
+```csharp
+var quest = db.Quest.FindById(new Id<QuestData>(1));
+var reward = db.Item.FindById(quest!.RewardItemId);
+```
+
+`automatable validate` also verifies that each `RewardItemId` points to an existing `ItemData` row. Declare optional references as `Id<ItemData>?`.
+
+## Load modes
+
+`Direct` is the default mode and reads rows from SQLite as they are requested:
+
+```csharp
+await db.InitializeAsync("Generated/table.db", TableDatabaseOptions.Direct);
+```
+
+Use `PreloadAll` when the complete dataset fits in memory and the application performs frequent lookups. Both modes expose the same query API.
+
+```csharp
+await db.InitializeAsync("Generated/table.db", TableDatabaseOptions.PreloadAll);
+```
+
+## Validation
+
+Validate the current database without rebuilding it:
+
+```powershell
+dotnet automatable validate
+```
+
+AutomaTable currently validates:
+
+- Table and column schema compatibility
+- `Id` uniqueness for every table
+- Uniqueness of `[FindBy]` keys
+- Referential integrity for `Id<T>` values
+- `AssetAddress` syntax and file existence
+
+Validation failures return a non-zero exit code, so the same command can be used in CI:
+
+```powershell
+dotnet tool restore
+dotnet automatable build --validate
+```
+
+## CLI reference
 
 ```text
-AutomaTable
-├─ AutomaTable
-│  └─ Runtime / Table Definition
-│
-├─ AutomaTable.Generator
-│  └─ Runtime table code generator
-│
-├─ AutomaTable.Importer
-│  └─ XLSX → SQLite DB
-│
-├─ AutomaTable.Importer.Generator
-│  └─ Importer code generator
-│
-├─ AutomaTable.Tests
-│  └─ Generated validation tests
-│
-└─ AutomaTable.Tests.Generator
-   └─ Validation test generator
+dotnet automatable build [options]
+dotnet automatable validate [options]
 ```
 
----
+| Option | build | validate | Description |
+|---|:---:|:---:|---|
+| `--project <path>` | Yes | Yes | Selects the target `.csproj`. |
+| `--input <path>` | Yes | No | Overrides the `.xlsx` input directory. |
+| `--output <path>` | Yes | Yes | Overrides the SQLite database path. |
+| `--resources <path>` | Yes | Yes | Overrides the root used for `AssetAddress` validation. |
+| `--validate` | Yes | No | Runs validation immediately after a successful build. |
 
-## 목표
+Run `dotnet automatable --help` to display command-line help.
 
-AutomaTable의 기본 아이디어는 간단합니다.
+## Incremental schema builds
 
-> **Define tables once. Generate everything else.**
+The CLI builds the target project with `AutomaTableEmitSchema=true` and reads the resulting schema metadata. This metadata is emitted only into a tool-specific assembly and is not included in a regular application build.
 
-새로운 데이터 테이블을 추가할 때 개발자가 반복적으로 작성해야 하는 코드를 최소화하고,
+Restore and build artifacts are isolated under `<project>/obj/AutomaTable/SchemaBuild`, equivalent to the following command:
+
+```powershell
+dotnet build MyGame.csproj `
+  --configuration Release `
+  --artifacts-path .\obj\AutomaTable\SchemaBuild `
+  -p:AutomaTableEmitSchema=true `
+  --no-restore
+```
+
+The CLI restores that artifact directory on the first run. Later runs reuse MSBuild's incremental output for unchanged projects, so `dotnet automatable build` does not rebuild the DLL from scratch every time.
+
+## Supported member types
+
+| Category | C# types |
+|---|---|
+| Integers | `byte`, `sbyte`, `short`, `ushort`, `int`, `uint`, `long`, `ulong` |
+| Floating point | `float`, `double`, `decimal` |
+| Other primitives | `bool`, `string`, `string?`, enum |
+| Time and identifiers | `DateTime`, `DateTimeOffset`, `TimeSpan`, `Guid` |
+| AutomaTable types | `Id<T>`, `Id<T>?`, `AssetAddress`, `AssetAddress?` |
+| Binary | `ReadOnlyMemory<byte>`, `ReadOnlyMemory<byte>?` (Base64 text in Excel) |
+
+Unsupported types and invalid model declarations are reported as compiler diagnostics `TABLE001` through `TABLE006`.
+
+## Working with this repository
+
+Run the complete test suite from the repository root:
+
+```powershell
+dotnet test
+```
+
+To run the CLI directly from source, use the following command from the `AutomaTable.Tests` directory:
+
+```powershell
+dotnet run --project ..\AutomaTable.Tool\AutomaTable.Tool.csproj -- build --validate
+```
+
+This reads `GameData` from the test project and creates `AutomaTable.Tests/Generated/table.db`. The test project's `.gitignore` excludes `Generated/`.
+
+## Repository layout
 
 ```text
-Table Definition
+AutomaTable/
+├─ AutomaTable/             Runtime, annotations, NuGet packaging
+├─ AutomaTable.Generator/   Runtime API and conditional schema generation
+├─ AutomaTable.Tool/        Project discovery, Excel import, SQLite build, validation
+└─ AutomaTable.Tests/       Models, sample workbooks, pipeline tests
 ```
 
-하나를 기준으로
-
-```text
-Runtime Code
-Importer
-Validation
-```
-
-가 함께 유지되도록 만드는 것이 목표입니다.
-
-특히 클라이언트와 서버가 동일한 테이블 모델과 조회 규칙을 공유함으로써 양쪽 구현이 서로 달라지는 문제를 줄이는 것을 지향합니다.
-
----
+Consumers install two components: the `AutomaTable` runtime package and the `AutomaTable.Tool` local CLI tool. The runtime package embeds the generator, while the data conversion implementation remains internal to the CLI.
 
 ## Roadmap
 
-현재 프로젝트는 개발 및 검증 단계에 있으며 다음 기능을 추가할 예정입니다.
-
-### Unity / ASP.NET Core Integration
-
-실제 Unity 클라이언트와 ASP.NET Core 서버 프로젝트에 라이브러리를 적용하여 통합 테스트를 진행할 예정입니다.
-
-동일한 테이블 정의와 생성된 코드를 클라이언트와 서버에서 공유하는 구조를 실제 환경에서 검증하는 것이 목표입니다.
-
-### JSON Output
-
-Importer가 SQLite DB를 생성할 때 동일한 데이터를 JSON으로도 출력하도록 개선할 예정입니다.
-
-```text
-             ┌─ table.db
-Excel ───────┤
-             └─ table.json
-```
-
-SQLite DB는 런타임에서 사용하고, JSON 파일은 Git에 함께 저장하여 데이터 변경 내용을 diff로 확인하는 용도로 사용합니다.
-
-Excel이나 SQLite 파일은 Git diff만으로 실제 데이터 변경 내용을 파악하기 어렵기 때문에, 사람이 리뷰할 수 있는 텍스트 형태의 데이터를 함께 생성하는 것이 목적입니다.
-
-### String-based ID
-
-현재 Excel에서 사용하는 raw integer ID 대신 사람이 읽기 쉬운 문자열 ID를 입력할 수 있도록 개선할 예정입니다.
-
-예:
-
-```text
-wood_sword
-iron_sword
-legendary_sword
-```
-
-Importer가 별도의 `IdMap`을 관리하여 문자열 ID와 실제 런타임에서 사용하는 raw ID를 연결합니다.
-
-```text
-wood_sword      <-> 101
-iron_sword      <-> 102
-legendary_sword <-> 103
-```
-
-한번 할당된 raw ID는 유지하여 DB나 사용자 데이터 등 외부에서 해당 ID를 사용하고 있더라도 안정적으로 참조할 수 있도록 하는 것이 목표입니다.
-
-이를 통해 Excel을 작성하는 사람은 숫자 ID를 직접 관리하지 않고 의미 있는 문자열을 사용할 수 있고, 런타임에서는 기존처럼 효율적인 integer ID를 사용할 수 있습니다.
-
----
-
-## Status
-
-현재 개발 중인 프로젝트입니다.
-
-API와 생성 코드 구조는 Unity / ASP.NET Core 실제 프로젝트 연동 및 데이터 파이프라인 검증 과정에서 변경될 수 있습니다.
+- [x] Generate a runtime query API from C# table models
+- [x] Build multiple `.xlsx` files into a single SQLite database
+- [x] Provide type-safe table references through `Id<T>`
+- [x] Generate finder methods and SQLite indexes from `[FindBy]` and `[FindAllBy]`
+- [x] Validate schemas, unique keys, referential integrity, and `AssetAddress` values
+- [x] Support direct SQLite queries and fully preloaded data
+- [x] Validate the package and generated runtime API in ASP.NET Core
+- [ ] Validate the package and generated runtime API in Unity (in progress)
+- [x] Emit CLI-only schema manifest v1 metadata
+- [x] Reuse incremental schema builds in an isolated artifact directory
+- [ ] Produce JSON diffs between build results
+- [ ] Support string IDs and IdMap
+- [ ] Support custom type converters
+- [ ] Provide an optional NUnit validation adapter

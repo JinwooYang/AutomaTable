@@ -1,8 +1,8 @@
 using AutomaTable.Annotations;
-using AutomaTable.Models.Items;
 using AutomaTable.Primitives;
+using AutomaTable.Tests.Models.Items;
 
-namespace AutomaTable.Models.Quests
+namespace AutomaTable.Tests.Models.Quests
 {
     [TableRow]
     [FindAllBy(nameof(Type), nameof(RepeatType))]

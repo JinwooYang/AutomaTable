@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <AssemblyName>AutomaTable.Tool</AssemblyName>
+        <RootNamespace>AutomaTable.Tool</RootNamespace>
+        <PackageId>AutomaTable.Tool</PackageId>
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>automatable</ToolCommandName>
+        <Version>0.1.0-alpha.1</Version>
+        <Authors>JinwooYang</Authors>
+        <Description>Build and validate Excel-backed AutomaTable data as a repository-local .NET tool.</Description>
+        <PackageProjectUrl>https://github.com/JinwooYang/AutomaTable</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/JinwooYang/AutomaTable.git</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageTags>dotnet-tool;table;excel;sqlite;validation</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="ExcelDataReader" Version="3.9.0" />
+        <PackageReference Include="Mono.Cecil" Version="0.11.6" />
+        <PackageReference Include="sqlite-net-pcl" Version="1.11.285" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="AutomaTable.Tests" />
+        <None Include="..\README.md"
+              Pack="true"
+              PackagePath="\" />
+    </ItemGroup>
+
+</Project>

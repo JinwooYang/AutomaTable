@@ -1,7 +1,7 @@
 using AutomaTable.Annotations;
 using AutomaTable.Primitives;
 
-namespace AutomaTable.Models.Items
+namespace AutomaTable.Tests.Models.Items
 {
     [TableRow]
     public sealed class ItemData

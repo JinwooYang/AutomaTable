@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace AutomaTable.Importer
+namespace AutomaTable.Tool
 {
     public sealed class ImportResult
     {

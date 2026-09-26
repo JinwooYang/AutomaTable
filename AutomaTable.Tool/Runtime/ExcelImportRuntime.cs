@@ -1,8 +1,9 @@
 using System.Globalization;
 using System.IO;
+using AutomaTable.Tool.Schema;
 using ExcelDataReader;
 
-namespace AutomaTable.Importer.Runtime
+namespace AutomaTable.Tool.Runtime
 {
     internal static class ExcelImportRuntime
     {
@@ -113,6 +114,24 @@ namespace AutomaTable.Importer.Runtime
             }
         }
 
+        public static bool ReadBoolean(object? value, string tableName, string columnName, int rowNumber)
+        {
+            if (value is bool boolean)
+                return boolean;
+            if (value is string text)
+            {
+                if (bool.TryParse(text.Trim(), out boolean))
+                    return boolean;
+                if (text.Trim() == "1") return true;
+                if (text.Trim() == "0") return false;
+            }
+
+            var integer = ReadInt64(value, tableName, columnName, rowNumber);
+            if (integer is 0 or 1)
+                return integer == 1;
+            throw InvalidValue(tableName, columnName, rowNumber, value, "true, false, 0, or 1");
+        }
+
         public static string ReadString(object? value, string tableName, string columnName, int rowNumber)
         {
             if (IsNull(value))
@@ -183,6 +202,25 @@ namespace AutomaTable.Importer.Runtime
             if (Guid.TryParse(text, out var result))
                 return result.ToString();
             throw InvalidValue(tableName, columnName, rowNumber, value, "a GUID");
+        }
+
+        public static long ReadEnum(
+            object? value,
+            string tableName,
+            ColumnSchema column,
+            int rowNumber)
+        {
+            if (TryReadEnumName(value, out var name))
+            {
+                if (column.EnumValues != null && column.EnumValues.TryGetValue(name, out var enumValue))
+                    return enumValue;
+                throw InvalidEnum(tableName, column.Name, rowNumber, value, column.EnumName ?? "enum");
+            }
+
+            var numeric = ReadInt64(value, tableName, column.Name, rowNumber);
+            if (column.EnumValues == null || column.EnumValues.ContainsValue(numeric))
+                return numeric;
+            throw InvalidEnum(tableName, column.Name, rowNumber, value, column.EnumName ?? "enum");
         }
 
         public static bool TryReadEnumName(object? value, out string name)

@@ -1,7 +1,7 @@
 using System.IO;
 using SQLitePCL;
 
-namespace AutomaTable.Importer.Runtime
+namespace AutomaTable.Tool.Runtime
 {
     internal static class SqliteWriteRuntime
     {
