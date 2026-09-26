@@ -7,6 +7,8 @@
         <PackageId>AutomaTable</PackageId>
         <Version>0.1.0-alpha.1</Version>
         <Authors>JinwooYang</Authors>
+        <Copyright>Copyright (c) 2026 JinwooYang</Copyright>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <Description>Runtime and source generator for sharing type-safe Excel-backed tables across Unity and ASP.NET Core.</Description>
         <PackageProjectUrl>https://github.com/JinwooYang/AutomaTable</PackageProjectUrl>
         <RepositoryUrl>https://github.com/JinwooYang/AutomaTable.git</RepositoryUrl>
