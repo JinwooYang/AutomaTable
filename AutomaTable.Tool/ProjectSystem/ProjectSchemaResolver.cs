@@ -82,29 +82,21 @@ internal static class ProjectSchemaResolver
         failure = string.Empty;
         var projectDirectory = Path.GetDirectoryName(projectPath)!;
         var artifactsPath = Path.Combine(projectDirectory, "obj", "AutomaTable", "SchemaBuild");
-        var assetsPath = Path.Combine(
-            artifactsPath,
-            "obj",
-            Path.GetFileNameWithoutExtension(projectPath),
-            "project.assets.json");
         Directory.CreateDirectory(artifactsPath);
 
-        if (!File.Exists(assetsPath))
+        var restore = RunDotnet(
+            projectDirectory,
+            "restore",
+            projectPath,
+            "--artifacts-path",
+            artifactsPath,
+            "--nologo",
+            "--verbosity",
+            "quiet");
+        if (restore.ExitCode != 0)
         {
-            var restore = RunDotnet(
-                projectDirectory,
-                "restore",
-                projectPath,
-                "--artifacts-path",
-                artifactsPath,
-                "--nologo",
-                "--verbosity",
-                "quiet");
-            if (restore.ExitCode != 0)
-            {
-                failure = $"{projectPath}: schema restore failed ({FirstUsefulLine(restore.StandardError, restore.StandardOutput)})";
-                return false;
-            }
+            failure = $"{projectPath}: schema restore failed ({FirstUsefulLine(restore.StandardError, restore.StandardOutput)})";
+            return false;
         }
 
         var build = RunDotnet(

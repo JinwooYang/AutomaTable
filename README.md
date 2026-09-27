@@ -307,7 +307,7 @@ dotnet build MyGame.csproj `
   --no-restore
 ```
 
-The CLI restores that artifact directory on the first run. Later runs reuse MSBuild's incremental output for unchanged projects, so `dotnet automatable build` does not rebuild the DLL from scratch every time.
+The CLI runs restore against that artifact directory before every schema build so changes to package references, target frameworks, and other restore inputs are detected safely. NuGet restore is incremental, and the following build reuses MSBuild's existing output for unchanged projects, so `dotnet automatable build` does not rebuild the DLL from scratch every time.
 
 ## Supported member types
 

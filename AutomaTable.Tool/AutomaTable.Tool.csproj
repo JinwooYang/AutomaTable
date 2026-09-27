@@ -10,7 +10,7 @@
         <PackageId>AutomaTable.Tool</PackageId>
         <PackAsTool>true</PackAsTool>
         <ToolCommandName>automatable</ToolCommandName>
-        <Version>0.1.0-alpha.1</Version>
+        <Version>0.1.0-alpha.2</Version>
         <Authors>JinwooYang</Authors>
         <Copyright>Copyright (c) 2026 JinwooYang</Copyright>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>

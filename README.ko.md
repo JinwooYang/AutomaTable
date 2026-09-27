@@ -307,7 +307,7 @@ dotnet build MyGame.csproj `
   --no-restore
 ```
 
-첫 실행에서만 해당 산출물 디렉터리를 restore하고, 이후에는 변경되지 않은 프로젝트의 MSBuild 증분 결과를 재사용합니다. 따라서 `dotnet automatable build`를 실행할 때마다 DLL을 처음부터 다시 만들지 않습니다.
+패키지 참조, 대상 프레임워크 등의 restore 입력 변경을 안전하게 감지할 수 있도록 스키마 빌드 전에 매번 해당 산출물 디렉터리를 restore합니다. NuGet restore 자체는 증분 방식으로 동작하며, 이어지는 빌드도 변경되지 않은 프로젝트의 기존 MSBuild 결과를 재사용합니다. 따라서 `dotnet automatable build`를 실행할 때마다 DLL을 처음부터 다시 만들지 않습니다.
 
 ## 지원하는 멤버 타입
 

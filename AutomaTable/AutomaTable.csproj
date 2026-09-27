@@ -5,7 +5,7 @@
         <LangVersion>10</LangVersion>
         <TargetFrameworks>netstandard2.1;net10.0</TargetFrameworks>
         <PackageId>AutomaTable</PackageId>
-        <Version>0.1.0-alpha.1</Version>
+        <Version>0.1.0-alpha.2</Version>
         <Authors>JinwooYang</Authors>
         <Copyright>Copyright (c) 2026 JinwooYang</Copyright>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
