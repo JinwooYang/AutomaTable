@@ -3,7 +3,7 @@
 [English](README.md) | **한국어**
 
 > [!WARNING]
-> AutomaTable은 현재 개발 중입니다. ASP.NET Core 환경에서는 검증을 완료했으며 Unity 환경에서는 검증을 진행하고 있습니다. 첫 안정 버전 전까지 API와 패키지 구조가 변경될 수 있습니다.
+> AutomaTable은 현재 개발 중입니다. 생성된 런타임 API는 ASP.NET Core와 Unity Editor 및 Android ARM64 플레이어 테스트에서 검증했습니다. 첫 안정 버전 전까지 API와 패키지 구조가 변경될 수 있습니다.
 
 > **Define tables once. Generate everything else.**
 
@@ -110,6 +110,14 @@ dotnet tool install --local AutomaTable.Tool --prerelease
 ```
 
 `AutomaTable` 패키지에는 런타임과 Source Generator가 함께 포함됩니다. `AutomaTable.Generator`를 별도로 참조할 필요가 없습니다.
+
+Unity 6용 UPM 패키지는 이 저장소의 `AutomaTable.Unity/Packages/com.jinwooyang.automatable`에 있습니다. 릴리스 태그를 지정해 Git 하위 폴더에서 설치할 수 있습니다.
+
+```text
+https://github.com/JinwooYang/AutomaTable.git?path=/AutomaTable.Unity/Packages/com.jinwooyang.automatable#<release-tag>
+```
+
+[Unity 테스트 프로젝트](AutomaTable.Unity/README.md)에는 임베디드 패키지, 샘플 Excel 데이터, 생성된 SQLite DB, EditMode/PlayMode 테스트가 포함되어 있습니다.
 
 ## 빠른 시작
 
@@ -345,7 +353,9 @@ AutomaTable/
 ├─ AutomaTable/             Runtime, annotations, NuGet packaging
 ├─ AutomaTable.Generator/   Runtime API and conditional schema generation
 ├─ AutomaTable.Tool/        Project discovery, Excel import, SQLite build, validation
-└─ AutomaTable.Tests/       Models, sample workbooks, pipeline tests
+├─ AutomaTable.Tests/       .NET 모델, 샘플 Excel 데이터, 파이프라인 테스트
+├─ AutomaTable.Unity/       Unity Editor·Android 테스트 프로젝트와 임베디드 UPM 패키지
+└─ eng/                     로컬 배포 준비 스크립트
 ```
 
 외부 사용자가 설치하는 단위는 런타임 패키지 `AutomaTable`과 로컬 CLI 도구 `AutomaTable.Tool` 두 개입니다. Generator는 런타임 패키지에 포함되고, 데이터 변환 구현은 CLI 내부에 숨겨집니다.
@@ -359,7 +369,7 @@ AutomaTable/
 - [x] 스키마, 고유 키, 참조 무결성, `AssetAddress` 검증
 - [x] SQLite 직접 조회와 전체 데이터 preload 모드
 - [x] ASP.NET Core 환경에서 패키지와 생성된 런타임 API 검증
-- [ ] Unity 환경에서 패키지와 생성된 런타임 API 검증 (진행 중)
+- [x] Unity Editor와 Android ARM64에서 패키지와 생성된 런타임 API 검증
 - [x] CLI 전용 schema manifest v1 생성
 - [x] 격리된 산출물 디렉터리를 사용하는 증분 스키마 빌드
 - [ ] 빌드 결과를 비교할 수 있는 JSON diff 출력

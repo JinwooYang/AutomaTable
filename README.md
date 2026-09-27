@@ -3,7 +3,7 @@
 **English** | [한국어](README.ko.md)
 
 > [!WARNING]
-> AutomaTable is under active development. ASP.NET Core integration has been validated, while validation in Unity is still in progress. APIs and package structure may change before the first stable release.
+> AutomaTable is under active development. The generated runtime API has been validated in ASP.NET Core and in Unity Editor and Android ARM64 player tests. APIs and package structure may change before the first stable release.
 
 > **Define tables once. Generate everything else.**
 
@@ -110,6 +110,14 @@ dotnet tool install --local AutomaTable.Tool --prerelease
 ```
 
 The `AutomaTable` package includes both the runtime and the source generator. You do not need to reference `AutomaTable.Generator` separately.
+
+For Unity 6, the UPM package lives at `AutomaTable.Unity/Packages/com.jinwooyang.automatable` in this repository. Install a tagged release from its Git subfolder:
+
+```text
+https://github.com/JinwooYang/AutomaTable.git?path=/AutomaTable.Unity/Packages/com.jinwooyang.automatable#<release-tag>
+```
+
+The [Unity test project](AutomaTable.Unity/README.md) includes an embedded copy of that package, sample workbooks, generated SQLite data, and EditMode/PlayMode tests.
 
 ## Quick start
 
@@ -345,7 +353,9 @@ AutomaTable/
 ├─ AutomaTable/             Runtime, annotations, NuGet packaging
 ├─ AutomaTable.Generator/   Runtime API and conditional schema generation
 ├─ AutomaTable.Tool/        Project discovery, Excel import, SQLite build, validation
-└─ AutomaTable.Tests/       Models, sample workbooks, pipeline tests
+├─ AutomaTable.Tests/       .NET models, sample workbooks, pipeline tests
+├─ AutomaTable.Unity/       Unity Editor and Android dogfooding project, embedded UPM package
+└─ eng/                     Local release preparation
 ```
 
 Consumers install two components: the `AutomaTable` runtime package and the `AutomaTable.Tool` local CLI tool. The runtime package embeds the generator, while the data conversion implementation remains internal to the CLI.
@@ -359,7 +369,7 @@ Consumers install two components: the `AutomaTable` runtime package and the `Aut
 - [x] Validate schemas, unique keys, referential integrity, and `AssetAddress` values
 - [x] Support direct SQLite queries and fully preloaded data
 - [x] Validate the package and generated runtime API in ASP.NET Core
-- [ ] Validate the package and generated runtime API in Unity (in progress)
+- [x] Validate the package and generated runtime API in Unity Editor and Android ARM64
 - [x] Emit CLI-only schema manifest v1 metadata
 - [x] Reuse incremental schema builds in an isolated artifact directory
 - [ ] Produce JSON diffs between build results

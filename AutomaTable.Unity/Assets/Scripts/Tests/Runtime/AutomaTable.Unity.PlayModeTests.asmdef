@@ -1,0 +1,16 @@
+{
+  "name": "AutomaTable.Unity.PlayModeTests",
+  "rootNamespace": "AutomaTable.Unity.Tests",
+  "references": [
+    "AutomaTable.Unity.Models",
+    "AutomaTable.Unity"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "AutomaTable.dll"
+  ],
+  "autoReferenced": false
+}

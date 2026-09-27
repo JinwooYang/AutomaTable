@@ -15,6 +15,11 @@
         <RepositoryType>git</RepositoryType>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageTags>table;excel;sqlite;source-generator;unity;aspnetcore</PackageTags>
+        <PackageReleaseNotes>Unity and ASP.NET Core dogfooding support for the 0.1.0 alpha line.</PackageReleaseNotes>
+        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <IsPackable>true</IsPackable>
     </PropertyGroup>
 

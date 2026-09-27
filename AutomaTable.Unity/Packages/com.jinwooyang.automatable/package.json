@@ -1,0 +1,19 @@
+{
+  "name": "com.jinwooyang.automatable",
+  "version": "0.1.0-alpha.2",
+  "displayName": "AutomaTable",
+  "description": "Define tables once and generate type-safe Unity runtime APIs backed by SQLite.",
+  "unity": "6000.0",
+  "documentationUrl": "https://github.com/JinwooYang/AutomaTable#readme",
+  "author": {
+    "name": "JinwooYang",
+    "url": "https://github.com/JinwooYang/AutomaTable"
+  },
+  "license": "MIT",
+  "keywords": [
+    "table",
+    "excel",
+    "sqlite",
+    "source-generator"
+  ]
+}

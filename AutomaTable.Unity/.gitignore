@@ -1,0 +1,17 @@
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+Assets/_Recovery/
+Assets/_Recovery.meta
+.idea/
+.vs/
+.utmp/
+*.csproj
+*.sln
+*.user
+*.apk
+*.aab

@@ -1,0 +1,19 @@
+{
+  "name": "AutomaTable.Unity.Tests",
+  "rootNamespace": "AutomaTable.Unity.Tests",
+  "references": [
+    "AutomaTable.Unity.Models",
+    "AutomaTable.Unity"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "AutomaTable.dll"
+  ],
+  "autoReferenced": false
+}
